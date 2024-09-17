@@ -1,6 +1,6 @@
 module Lib where
 
-import Prelude hiding (map, foldr, foldr1, foldl, foldl1, zipWith)
+import Prelude hiding (map, zipWith)
 
 someFunc :: IO ()
 someFunc = putStrLn "Hello"
@@ -173,7 +173,122 @@ fold f (x:xs) = f x $ fold f xs
 
 
 
+my_sum :: [Int] -> Int
+my_sum = foldr (+) 0
+
+data Point3D = MakePoint String Double Double Double deriving Show --                      naam,  x,     y,     z
+
+naam :: Point3D -> String
+naam (MakePoint n _ _ _) = n
+
+x :: Point3D -> Double
+x (MakePoint _ x _ _) = x
+
+with_naam :: String -> Point3D -> Point3D
+with_naam s (MakePoint _ x y z) = MakePoint s x y z
+
+origin :: Point3D
+origin = MakePoint "Origin" 0 0 0 -- Bijvoorbeeld
+
+testPoint :: (String, Double, Point3D, String)
+testPoint = (
+  naam origin,                -- => "Origin"
+  x origin,                   -- => 0.0
+  with_naam "Here" origin,    -- => MakePoint "Here" 0.0 0.0 0.0
+  naam (with_naam "Here" origin) -- => "Here"
+  )
 
 
 
+
+
+--som_mod_3 :: [Int] -> String
+--som_mod_3 xs = beschrijf (sum xs `mod` 3)
+  --where beschrijf 0 = "Deelbaar door drie"
+        --beschrijf 1 = "Een teveel"
+        --beschrijf 2 = "Een te weinig"
+
+som_mod_3 :: [Int] -> String
+som_mod_3 xs = case sum xs `mod` 3 of
+  0 -> "Deelbaar door drie"
+  1 -> "Een teveel"
+  2 -> "Een te weinig"
+  _ -> "Dit is onmogelijk"
+
+
+-- som_mod_3 [3] -> "Deelbaar door drie"
+-- som_mod_3 [3,1] -> "Een teveel" (want 4%3=1)
+-- som_mod_3 [1,1,1,1,1,1,1,1] -> "Een te weinig" (want 8%3=2)
+
+
+
+(+++) :: Int -> Int -> Int
+0 +++ 0 = 0
+_ +++ _ = -1
+
+
+
+
+
+data Nul
+type Een = ()
+type Twee = Bool
+data Drie = Rood | Groen | Blauw deriving Show
+data Vier = Harten | Schoppen | Ruiten | Klaveren deriving Show
+data Vijf = Fire | Water | Earth | Air | Heart deriving Show
+data Zes = Up | Down | Charm | Strange | Top | Bottom deriving Show
+
+type EenPlus a = Maybe a   -- Just a of Nothing
+type Plus a b = Either a b -- Left a of Right b
+type Keer a b = (a, b)     -- (a, b)
+
+datatypes_a :: [EenPlus Vier]
+datatypes_a = [Just Harten, Just Schoppen, Just Klaveren, Just Ruiten, Nothing]
+
+datatypes_b :: [Plus Een Drie]
+datatypes_b = [Left (), Right Rood, Right Groen, Right Blauw]
+
+datatypes_c :: [Plus Drie Een]
+datatypes_c = [Right (), Left Rood, Left Groen, Left Blauw]
+
+datatypes_d :: [Keer Een Vijf]
+datatypes_d = [((), Fire), ((), Water), ((), Earth), ((),Air), ((), Heart)]
+
+datatypes_e :: [Keer Drie Twee]
+datatypes_e = [(kleur, bool) | kleur <- [Rood, Groen, Blauw], bool <- [True, False]]
+
+datatypes_f :: [Plus Nul Zes]
+datatypes_f = [Right Up, Right Down, Right Charm, Right Strange, Right Top, Right Bottom]
+
+datatypes_g :: [Keer Nul Twee]
+datatypes_g = []
+
+voorbeeld :: Plus Een Drie -> Keer Twee Twee
+voorbeeld (Left ())     = (True, True)
+voorbeeld (Right Rood)  = (True, False)
+voorbeeld (Right Groen) = (False, False)
+voorbeeld (Right Blauw) = (True, False)
+
+heen :: Plus Vijf Twee -> EenPlus (Keer Drie Twee)
+heen (Left Fire)   = Just (Rood, True)
+heen (Left Water)  = Just (Rood, False)
+heen (Left Earth)  = Just (Groen, True)
+heen (Left Air)    = Just (Groen, False)
+heen (Left Heart)  = Just (Blauw, True)
+heen (Right True)  = Just (Blauw, False)
+heen (Right False) = Nothing
+
+terug :: EenPlus (Keer Drie Twee) -> Plus Vijf Twee 
+terug Just (Rood, True)   = (Left Fire)
+terug Just (Rood, False)  = (Left Water)
+terug Just (Groen, True)  = (Left Earth)
+terug Just (Groen, False) = (Left Air)
+terug Just (Blauw, True)  = (Left Heart)
+terug Just (Blauw, False) = (Right True)
+terug Nothing             = (Right False)
+
+functie_a :: Keer Twee Twee -> Zes
+functie_b :: Drie -> Plus Een Een
+functie_c :: Twee -> Nul
+functie_d :: Nul -> Een
 

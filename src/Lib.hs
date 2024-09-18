@@ -279,16 +279,39 @@ heen (Right True)  = Just (Blauw, False)
 heen (Right False) = Nothing
 
 terug :: EenPlus (Keer Drie Twee) -> Plus Vijf Twee 
-terug Just (Rood, True)   = (Left Fire)
-terug Just (Rood, False)  = (Left Water)
-terug Just (Groen, True)  = (Left Earth)
-terug Just (Groen, False) = (Left Air)
-terug Just (Blauw, True)  = (Left Heart)
-terug Just (Blauw, False) = (Right True)
-terug Nothing             = (Right False)
+terug (Just (Rood, True))   = (Left Fire)
+terug (Just (Rood, False))  = (Left Water)
+terug (Just (Groen, True))  = (Left Earth)
+terug (Just (Groen, False)) = (Left Air)
+terug (Just (Blauw, True))  = (Left Heart)
+terug (Just (Blauw, False)) = (Right True)
+terug Nothing               = (Right False)
 
 functie_a :: Keer Twee Twee -> Zes
+functie_a (True, False) = Up
+functie_a (False, False) = Down
+functie_a (False, True) = Top
+functie_a (True, True) = Bottom
+
 functie_b :: Drie -> Plus Een Een
+functie_b = undefined
 functie_c :: Twee -> Nul
+functie_c = undefined
 functie_d :: Nul -> Een
+functie_d = undefined
+
+data Number = Zero | Next Number
+
+one, two, three :: Number
+one = Next Zero
+two = Next one
+three = Next two
+
+plus, times :: Number -> Number -> Number
+
+plus = undefined
+
+times = undefined
+
+
 

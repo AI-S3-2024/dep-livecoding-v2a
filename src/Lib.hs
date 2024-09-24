@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeOperators #-}
+
 module Lib where
 
 import Prelude hiding (map, zipWith)
@@ -302,6 +304,10 @@ functie_d = undefined
 
 data Number = Zero | Next Number
 
+instance Show Number where
+  show Zero = ""
+  show (Next a) = '|' : show a
+
 one, two, three :: Number
 one = Next Zero
 two = Next one
@@ -309,9 +315,147 @@ three = Next two
 
 plus, times :: Number -> Number -> Number
 
-plus = undefined
+plus Zero b = b
+plus (Next a) b = Next $ plus a b
+--plus (Next a) b = plus a $ Next b
 
-times = undefined
+times Zero _ = Zero
+times (Next Zero) b = b
+times (Next a) b = plus b $ times a b
 
 
+instance Eq Number where
+  Zero     == Zero = True
+  (Next a) == (Next b) = a == b
+  _        == _ = False
+
+instance Ord Number where
+  Zero   <= _      = True
+  Next a <= Next b = a <= b
+  _      <= _      = False
+
+
+instance Enum Number where
+  toEnum 0   = Zero
+  toEnum int | int > 0   = Next $ toEnum (int - 1)
+             | otherwise = error "Big nope."
+
+  fromEnum Zero = 0
+  fromEnum (Next n) = fromEnum n + 1
+
+
+
+instance Num Number where
+
+  -- Deze twee hebben we al:
+  a + b = plus a b
+  a * b = times a b
+
+  -- abs :: Num n => n -> n
+  -- Geef de absolute waarde. Die is altijd hetzelfde voor ons type:
+  abs = id
+
+  -- signum :: Num n => n -> n
+  -- Geeft 0, 1 of -1 terug om aan te geven of een getal positief, negatief, of nul is
+  signum Zero = Zero
+  signum _    = one
+  -- instance Num Number where       -- nog steeds
+
+  -- negate :: Num n => n -> n
+  -- Negatieve getallen worden niet ondersteund
+  negate _ = undefined
+
+  -- fromInteger :: Num n => Integer -> n
+  -- Conversie van een geheel getal (input) naar een waarde van ons type
+  -- Integer is een ander type dan Int :-/
+
+  -- We hebben al toEnum :: Int -> Number, en Integer is ook een Enum
+
+  fromInteger = toEnum . fromEnum
+  --            ^ Int -> Number
+  --                     ^ Integer -> Int
+
+answer :: Number
+answer = 42
+
+testVal :: Number -> String -- Dit kan alleen als Number een instance van Eq en Num is
+testVal 0 = "Nil"
+testVal 1 = "Uno"
+testVal 2 = "Muy"
+
+
+newtype Additive = Add Number
+
+instance Semigroup Additive where
+  (Add a) <> (Add b) = Add $ plus a b                     -- (<>) :: Number -> Number -> Number
+
+instance Monoid Additive where
+  mempty = Add Zero                   -- mempty :: Number
+
+newtype Multiplicative = Mul Number
+
+instance Semigroup Multiplicative where
+  (Mul a) <> (Mul b) = Mul $ times a b                     -- (<>) :: Number -> Number -> Number
+
+instance Monoid Multiplicative where
+  mempty = Mul one                   -- mempty :: Number
+
+
+
+
+
+
+
+infixr 5 :::
+data Stream a = a ::: Stream a
+
+headS :: Stream a -> a
+headS (h ::: _) = h
+
+tailS :: Stream a -> Stream a
+tailS (_ ::: t) = t
+
+repeatS :: a -> Stream a
+repeatS a = a ::: repeatS a
+
+-- repeatS 1 => 1 ::: 1 ::: 1 ::: 1 ::: 1 ::: ...
+
+takeS :: Int -> Stream a -> [a]
+takeS 0 _ = []
+takeS n (a ::: as) = a : takeS (pred n) as
+
+prepend :: [a] -> Stream a -> Stream a
+prepend [] stream = stream
+prepend (a:as) stream = a ::: prepend as stream
+
+
+
+cycleS :: [a] -> Stream a
+cycleS as = prepend as $ cycleS as
+
+--cycleS (a:as) = a ::: cycleS (as ++ [a])
+
+mapS :: (a -> b) -> Stream a -> Stream b
+mapS f (a ::: as) = f a ::: mapS f as
+
+
+zipWithS :: (a -> b -> c) -> Stream a -> Stream b -> Stream c
+zipWithS op (a ::: as) (b ::: bs) = a `op` b ::: zipWithS op as bs
+
+fibs :: Stream Int
+fibs = 0 ::: 1 ::: zipWithS (+) fibs (tailS fibs)
+
+iterateS :: (a -> a) -> a -> Stream a
+iterateS f current = current ::: iterateS f (f current)
+
+naturals :: Stream Int
+naturals = iterateS succ 0
+
+-- takeS 10 naturals = [0,1,2,3,4,5,6,7,8,9]
+
+scanS :: (b -> a -> b) -> b -> Stream a -> Stream b
+scanS op b (a ::: as) = b ::: scanS op (b `op` a) as
+
+-- takeS 10 $ scanS (+) 0 $ tailS naturals
+--    = [0,1,3,6,10,15,21,28,36,45]
 

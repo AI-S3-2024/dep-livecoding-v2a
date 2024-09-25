@@ -3,6 +3,7 @@
 module Lib where
 
 import Prelude hiding (map, zipWith)
+import Data.Char (toUpper, toLower)
 
 someFunc :: IO ()
 someFunc = putStrLn "Hello"
@@ -459,3 +460,95 @@ scanS op b (a ::: as) = b ::: scanS op (b `op` a) as
 -- takeS 10 $ scanS (+) 0 $ tailS naturals
 --    = [0,1,3,6,10,15,21,28,36,45]
 
+instance Functor Stream where
+  fmap :: (a -> b) -> Stream a -> Stream b
+  fmap = mapS
+
+capitalise :: Stream Char -> Stream Char
+capitalise cs = fmap toUpper cs
+
+double :: Num a => Stream a -> Stream a
+double as = (*2) <$> as
+
+
+mapMaybe :: (a -> b) -> Maybe a -> Maybe b
+mapMaybe _ Nothing  = Nothing
+mapMaybe f (Just a) = Just $ f a 
+
+contained_in _ []                                  = Nothing
+contained_in target (first:rest) | target == first = Just 0
+                                 | otherwise       = maybe_plus_een $ contained_in target rest
+  where maybe_plus_een (Just x) = Just $ x + 1
+        maybe_plus_een Nothing  = Nothing
+
+contained' _ [] = Nothing
+contained' target (first:rest) | target == first = Just 0
+                               | otherwise = (+1) <$> contained' target rest
+
+
+instance Applicative Stream where
+  pure = repeatS
+  --liftA2 = zipWithS
+  (f:::fs) <*> (a:::as) = f a ::: (fs <*> as)
+
+
+
+
+
+
+
+
+
+
+data Indexed a = Indexed { index :: ((Int, Int) -> a) }
+
+instance Show (Indexed Char) where
+  show i = unlines [ [ (index i) (x,y)
+                     | x <- [0..10]
+                     ]
+                   | y <- [0..10]
+                   ]
+
+figO :: Indexed Char
+figO = Indexed $ \(x,y) ->
+  if (x == 0 || x == 2 || y == 0 || y == 2)
+       && (x < 3) && (y < 3)
+    then 'I'
+    else '.'
+
+figX :: Indexed Char
+figX = Indexed $ \(x,y) -> case (x,y) of
+  (0, 0) -> 'A'
+  (2, 0) -> 'B'
+  (1, 1) -> 'C'
+  (0, 2) -> 'D'
+  (2, 2) -> 'E'
+  _ -> ' '
+
+figSlash :: Indexed Char
+figSlash = Indexed $ \(x,y) -> if x == y then '\\' else '/'
+
+
+instance Functor Indexed where
+  fmap f (Indexed i) = Indexed $ f . i
+
+
+mirror :: Char -> Char
+mirror c | c == '\\' = '/'
+         | c == '/'  = '\\'
+         | otherwise = c
+
+applyRows :: [Int] -> (a -> a) -> Indexed (a -> a)
+applyRows rows f = Indexed $ \(_, y) -> if y `elem` rows then f else id
+
+applyCols :: [Int] -> (a -> a) -> Indexed (a -> a)
+applyCols cols f = Indexed $ \(x, _) -> if x `elem` cols then f else id  
+
+instance Applicative Indexed where
+  pure a = Indexed $ \_ -> a
+  Indexed fs <*> Indexed as = Indexed $ \(x,y) -> (fs (x,y)) (as (x,y))
+
+
+testI1 = applyCols [0, 2] mirror <*> figSlash
+testI2 = applyCols [0] toUpper <*> (applyRows [0,2] toLower <*> figO)
+testI3 = min <$> figX <*> figO

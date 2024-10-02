@@ -2,6 +2,11 @@
 
 module Lib where
 
+import Control.Applicative
+import Control.Monad
+import Control.Monad.Trans.State
+import Data.List (uncons)
+
 import Prelude hiding (map, zipWith)
 import Data.Char (toUpper, toLower)
 
@@ -173,6 +178,7 @@ zipWith f (x:xs) (y:ys) = f x y : zipWith f xs ys
 fold :: (a -> a -> a) -> [a] -> a
 fold _ [x]    = x
 fold f (x:xs) = f x $ fold f xs
+fold _ []     = error "unsupported"
 
 
 
@@ -181,13 +187,19 @@ my_sum = foldr (+) 0
 
 data Point3D = MakePoint String Double Double Double deriving Show --                      naam,  x,     y,     z
 
+-- | Return the naam
+-- >>> naam (Point3D "hallo" 1 2 3)
+-- "hallo"
 naam :: Point3D -> String
 naam (MakePoint n _ _ _) = n
 
-x :: Point3D -> Double
-x (MakePoint _ x _ _) = x
+get_x :: Point3D -> Double
+get_x (MakePoint _ x _ _) = x
 
-with_naam :: String -> Point3D -> Point3D
+-- | Update a datapoint name
+with_naam :: String  -- ^ New name
+          -> Point3D -- ^ Point to modify
+          -> Point3D -- ^ Updated point
 with_naam s (MakePoint _ x y z) = MakePoint s x y z
 
 origin :: Point3D
@@ -196,7 +208,7 @@ origin = MakePoint "Origin" 0 0 0 -- Bijvoorbeeld
 testPoint :: (String, Double, Point3D, String)
 testPoint = (
   naam origin,                -- => "Origin"
-  x origin,                   -- => 0.0
+  get_x origin,                   -- => 0.0
   with_naam "Here" origin,    -- => MakePoint "Here" 0.0 0.0 0.0
   naam (with_naam "Here" origin) -- => "Here"
   )
@@ -383,6 +395,7 @@ testVal :: Number -> String -- Dit kan alleen als Number een instance van Eq en 
 testVal 0 = "Nil"
 testVal 1 = "Uno"
 testVal 2 = "Muy"
+testVal _ = "No bueno"
 
 
 newtype Additive = Add Number
@@ -461,7 +474,7 @@ scanS op b (a ::: as) = b ::: scanS op (b `op` a) as
 --    = [0,1,3,6,10,15,21,28,36,45]
 
 instance Functor Stream where
-  fmap :: (a -> b) -> Stream a -> Stream b
+  --fmap :: (a -> b) -> Stream a -> Stream b
   fmap = mapS
 
 capitalise :: Stream Char -> Stream Char
@@ -475,12 +488,14 @@ mapMaybe :: (a -> b) -> Maybe a -> Maybe b
 mapMaybe _ Nothing  = Nothing
 mapMaybe f (Just a) = Just $ f a 
 
+contained_in :: (Eq t, Num a) => t -> [t] -> Maybe a
 contained_in _ []                                  = Nothing
 contained_in target (first:rest) | target == first = Just 0
                                  | otherwise       = maybe_plus_een $ contained_in target rest
   where maybe_plus_een (Just x) = Just $ x + 1
         maybe_plus_een Nothing  = Nothing
 
+contained' :: (Eq t, Num a) => t -> [t] -> Maybe a
 contained' _ [] = Nothing
 contained' target (first:rest) | target == first = Just 0
                                | otherwise = (+1) <$> contained' target rest
@@ -502,12 +517,14 @@ instance Applicative Stream where
 
 data Indexed a = Indexed { index :: ((Int, Int) -> a) }
 
+{-
 instance Show (Indexed Char) where
   show i = unlines [ [ (index i) (x,y)
                      | x <- [0..10]
                      ]
                    | y <- [0..10]
                    ]
+-}
 
 figO :: Indexed Char
 figO = Indexed $ \(x,y) ->
@@ -549,6 +566,139 @@ instance Applicative Indexed where
   Indexed fs <*> Indexed as = Indexed $ \(x,y) -> (fs (x,y)) (as (x,y))
 
 
+testI1, testI2, testI3 :: Indexed Char
 testI1 = applyCols [0, 2] mirror <*> figSlash
 testI2 = applyCols [0] toUpper <*> (applyRows [0,2] toLower <*> figO)
 testI3 = min <$> figX <*> figO
+
+
+data Boring a = Packed { unpack :: a } deriving Show
+
+instance Functor Boring where
+  --fmap :: (a -> b) -> Boring a -> Boring b
+  fmap f bv = Packed . f . unpack $ bv
+
+instance Applicative Boring where
+  --pure :: a -> Boring a
+  pure = Packed
+  -- (<*>) :: Boring (a -> b) -> Boring a -> Boring b
+  (Packed f) <*> (Packed v) = Packed $ f v
+
+boring_inc, boring_dec :: Int -> Boring Int
+boring_inc a = Packed $ a + 1  -- met de constructor
+boring_dec a = pure $ a - 1    -- of generic `pure`
+
+instance Monad Boring where
+  -- (>>=) :: Boring a -> (a -> Boring b) -> Boring b
+  (Packed a) >>= f = f a
+
+
+get_reverse :: IO String -- o.b.v. getLine en reverse
+get_reverse = reverse <$> getLine
+
+print_reverse :: IO ()   -- o.b.v. get_reverse en putStrLn
+print_reverse = get_reverse >>= putStrLn
+
+
+
+
+
+
+-- | Input a number and then read that many chars
+input_n :: IO String
+input_n = let read_chars num = take num <$> getLine
+          in readLn >>= read_chars
+
+hallo :: IO ()
+hallo = do putStrLn "Hoe heet jij?"
+           name <- getLine
+           putStrLn $ "Hallo, " <> name ++ "!"
+
+avg :: IO ()
+avg = do content <- readFile "input"
+         let nums = map read $ lines content :: [Double]
+         print nums
+         print $ sum nums / fromIntegral (length nums)
+
+
+-- Voer uit met runState
+handleInput :: State [Int] Int
+handleInput = do ints <- get
+                 put $ tail ints
+                 return $ head ints
+
+-- Alleen resultaat van belang -> evalState
+sumInput :: State [Int] Int
+sumInput = do input <- uncons <$> get
+              case input of
+                Just (h, t) -> do put t
+                                  val <- sumInput
+                                  return $ val + h
+                                  --(+h) <$> sumInput
+                Nothing -> return 0
+
+-- Alleen uiteindelijke state van belang -> execState
+produce :: State [Int] ()
+produce = do s <- get
+             if s == []
+               then put [0]
+               else modify $ (head s + 1 :)
+
+produceN :: Int -> State [Int] ()
+produceN 0 = return ()
+produceN n = produce >> produceN (n-1)
+
+
+new_stack :: State [Int] ()      -- [a, b, ...]   ~>   [1, a, b, ...]
+new_stack = modify (1:)
+
+--new_stack = do s <- get
+               --put $ (1:) s
+
+reverse_stacks :: State [Int] () -- [a, b, c]     ~>   [c, b, a]
+reverse_stacks = modify reverse
+
+dup :: State [Int] ()            -- [a, b]        ~>   [a, b, a, b]
+dup = modify $ \x -> x <> x
+
+--add_1 :: State [Int] ()          -- [a, b, ...]   ~>   [a + 1, b, ...]
+
+type Parser = (StateT String Maybe) -- Parser a   ~>   State String (Maybe a)
+type CharSet = [Char]
+
+pCharSet :: CharSet -> Parser Char
+pCharSet cs = do input <- uncons <$> get
+                 case input of
+                   Just (h, t) -> if h `elem` cs then put t >> return h else mzero
+                   Nothing -> mzero
+
+pOptional :: Parser a -> Parser (Maybe a)
+pOptional p = Just <$> p <|> return Nothing 
+
+pComma :: Parser ()
+pComma = () <$ do _ <- pCharSet ","
+                  pOptional (pCharSet " ")
+
+readFromChar :: Char -> Int
+readFromChar = read . (: [])
+
+pDigit :: Parser Int
+pDigit = readFromChar <$> pCharSet "0123456789"
+
+pDigitTimesTen :: Parser Int
+pDigitTimesTen = (*10) <$> pDigit
+
+pDoubleDigits :: Parser Int
+pDoubleDigits = (+) <$> pDigitTimesTen <*> pDigit -- A la zipWith
+
+pDigitTimesHundred :: Parser Int
+pDigitTimesHundred = (* 100) <$> pDigit
+
+pTripleDigits :: Parser Int
+pTripleDigits = (+) <$> pDigitTimesHundred <*> pDoubleDigits
+
+
+pNumber :: Parser Int -- Let op de volgorde!
+pNumber = pTripleDigits <|> pDoubleDigits <|> pDigit
+
+

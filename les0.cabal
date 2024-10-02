@@ -35,6 +35,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
+    , transformers
   default-language: Haskell2010
 
 executable les0-exe
@@ -49,6 +50,7 @@ executable les0-exe
   build-depends:
       base >=4.7 && <5
     , les0
+    , transformers
   default-language: Haskell2010
 
 test-suite les0-test
@@ -64,4 +66,5 @@ test-suite les0-test
   build-depends:
       base >=4.7 && <5
     , les0
+    , transformers
   default-language: Haskell2010
